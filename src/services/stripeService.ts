@@ -7,7 +7,7 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   typescript: true,
 });
 
-// Heart Harbor pricing configuration
+// Lily Heart pricing configuration
 export const PRICING_PLANS = {
   family_coach: {
     name: "Family Communication Coach",

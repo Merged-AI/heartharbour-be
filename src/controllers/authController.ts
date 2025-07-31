@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as authService from "../services/authService.js";
+import { getCookieConfig, getClearCookieConfig } from "../lib/utils.js";
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -15,11 +16,12 @@ export const login = async (req: Request, res: Response) => {
       return res.status(result.status || 401).json({ error: result.error });
     }
 
+    // Get cookie configuration for production deployment
+    const cookieConfig = getCookieConfig(req);
+
     // Set authentication cookie
     res.cookie("auth_token", result.sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      ...cookieConfig,
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
 
@@ -35,14 +37,11 @@ export const login = async (req: Request, res: Response) => {
 
 export const logout = async (req: Request, res: Response) => {
   try {
+    // Get cookie configuration for clearing cookies
+    const cookieConfig = getClearCookieConfig(req);
+
     // Clear the custom auth token cookie
-    res.cookie("auth_token", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 0,
-      path: "/",
-    });
+    res.cookie("auth_token", "", cookieConfig);
 
     // Sign out from Supabase (if needed)
     await authService.logout();
@@ -68,13 +67,13 @@ export const autoLogin = async (req: Request, res: Response) => {
       return res.status(result.status || 401).json({ error: result.error });
     }
 
+    // Get cookie configuration for production deployment
+    const cookieConfig = getCookieConfig(req);
+
     // Set authentication cookie
     res.cookie("auth_token", result.sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      ...cookieConfig,
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      path: "/",
     });
 
     res.json({

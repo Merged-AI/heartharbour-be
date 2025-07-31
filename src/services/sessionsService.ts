@@ -5,6 +5,15 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Utility function to clean OpenAI JSON responses
+function cleanOpenAIJsonResponse(response: string): string {
+  return response
+    .replace(/```json\n?/g, '')
+    .replace(/```\n?/g, '')
+    .replace(/^\s*[\r\n]/gm, '') // Remove empty lines
+    .trim();
+}
+
 type Message = {
   sender: "child" | "ai";
   content: string;
@@ -52,7 +61,7 @@ Respond with a JSON object only:
   "sadness": number,
   "stress": number,
   "confidence": number,
-  "insights": "Brief clinical observation about the emotional state"
+  "insights": "Brief caring observation about the emotional state"
 }`;
 
     const completion = await openai.chat.completions.create({
@@ -77,8 +86,8 @@ Respond with a JSON object only:
       throw new Error("No response from OpenAI");
     }
 
-    // Parse the JSON response
-    const moodAnalysis = JSON.parse(response);
+    // Clean and parse the JSON response
+    const moodAnalysis = JSON.parse(cleanOpenAIJsonResponse(response));
 
     // Ensure all scores are within 1-10 range
     moodAnalysis.happiness = Math.max(
@@ -145,8 +154,8 @@ Respond with a JSON array of topic names only, no explanations:
       throw new Error("No response from OpenAI");
     }
 
-    // Parse the JSON response
-    const topics = JSON.parse(response);
+    // Clean and parse the JSON response
+    const topics = JSON.parse(cleanOpenAIJsonResponse(response));
 
     // Ensure it's an array and has valid topics
     if (Array.isArray(topics) && topics.length > 0) {

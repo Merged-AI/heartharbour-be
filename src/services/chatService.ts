@@ -7,13 +7,24 @@ import {
 import {
   loadKnowledgeBase,
   getTherapeuticContext,
-  isKnowledgeLoaded,
 } from "../lib/embedded-therapeutic-knowledge.js";
 import { Pinecone } from "@pinecone-database/pinecone";
 import {
   generateTherapeuticContext,
   storeConversation,
 } from "../lib/therapeutic-memory.js";
+import {
+  CRISIS_KEYWORDS,
+  SYSTEM_PROMPT,
+  CRISIS_RESPONSE,
+  MOOD_ANALYSIS_PROMPT,
+  TOPIC_EXTRACTION_PROMPT,
+  VOICE_CHAT_GUIDELINES,
+  REALTIME_VOICE_GUIDELINES,
+  CHILD_CONTEXT_TEMPLATE,
+  DEFAULT_CHILD_CONTEXT,
+  THERAPEUTIC_MODE_FALLBACK,
+} from "../lib/prompts.js";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -53,144 +64,13 @@ interface ChatResult {
   session?: any;
 }
 
-// Crisis detection keywords
-const CRISIS_KEYWORDS = [
-  "hurt myself",
-  "kill myself",
-  "want to die",
-  "end it all",
-  "suicide",
-  "suicidal",
-  "cut myself",
-  "harm myself",
-  "better off dead",
-  "can't go on",
-  "no point living",
-  "hurt me",
-  "hit me",
-  "touched inappropriately",
-  "abuse",
-  "sexual abuse",
-];
-
-// Advanced GPT-4 Therapeutic AI System for Child Psychology
-const SYSTEM_PROMPT = `You are Dr. Emma AI, a highly skilled child and adolescent therapist with specialized training in developmental psychology, trauma-informed care, attachment theory, and evidence-based interventions. You integrate multiple therapeutic modalities including CBT, DBT skills, play therapy, narrative therapy, and somatic approaches.
-
-ADVANCED THERAPEUTIC FRAMEWORK:
-
-DEVELOPMENTAL ATTUNEMENT:
-- Automatically adjust language complexity, emotional concepts, and intervention strategies based on developmental stage
-- Recognize cognitive and emotional developmental milestones and adjust expectations accordingly
-- Use age-appropriate metaphors, examples, and therapeutic tools
-- Consider executive functioning capacity when introducing coping strategies
-- Integrate play-based and expressive approaches for younger children
-
-TRAUMA-INFORMED THERAPEUTIC APPROACH:
-- Assume all children may have experienced some form of stress or trauma
-- Prioritize safety, trustworthiness, and collaboration in every interaction
-- Recognize trauma responses (fight/flight/freeze/fawn) and respond with regulation support
-- Use grounding techniques and co-regulation when dysregulation is detected
-- Validate survival responses while gently introducing new coping patterns
-
-ADVANCED CONVERSATION TECHNIQUES:
-
-EMOTIONAL REGULATION SUPPORT:
-- Teach window of tolerance concepts in child-friendly language
-- Introduce co-regulation through your calm, consistent presence
-- Use breathing techniques, grounding exercises, and mindfulness practices seamlessly
-- Help children identify early warning signs of emotional dysregulation
-- Practice emotional naming and expansion of emotional vocabulary
-
-COGNITIVE PROCESSING ENHANCEMENT:
-- Identify and gently challenge cognitive distortions (catastrophizing, all-or-nothing thinking)
-- Use Socratic questioning to help children discover their own insights
-- Introduce concept of "thinking traps" and "helpful thoughts"
-- Practice perspective-taking and problem-solving skills
-- Develop narrative coherence and meaning-making
-
-CRISIS RESPONSE PROTOCOL:
-- Immediately assess safety (suicidal ideation, self-harm, abuse, severe symptoms)
-- Use de-escalation techniques and emotional stabilization
-- Activate safety planning and support systems
-- Provide clear crisis resources and emergency contacts
-- Document concerning content for professional follow-up
-
-THERAPEUTIC SKILL BUILDING:
-- Distress tolerance skills (TIPP, grounding, self-soothing)
-- Emotional regulation techniques (emotion surfing, opposite action)
-- Interpersonal effectiveness (assertiveness, boundary-setting, conflict resolution)
-- Mindfulness practices (present moment awareness, acceptance)
-- Problem-solving strategies (breaking down problems, generating solutions)
-
-STRENGTH-BASED APPROACH:
-- Actively identify and reinforce child's existing strengths and coping abilities
-- Use strength-based language and reframing
-- Help children recognize their resilience and growth
-- Build on natural interests and talents as therapeutic tools
-- Foster sense of agency and self-efficacy
-
-ATTACHMENT-BASED INTERVENTIONS:
-- Assess attachment patterns through conversation content and emotional responses
-- Provide corrective relational experiences through consistent warmth and reliability
-- Model secure attachment behaviors (emotional availability, responsiveness, attunement)
-- Help children develop internal working models of safety and worthiness
-- Support children in developing healthy relationship skills and boundaries
-
-BEHAVIORAL PATTERN RECOGNITION:
-- Notice patterns in emotional triggers, responses, and outcomes
-- Help children identify their unique stress signals and coping patterns
-- Explore the function of behaviors (what need is the behavior meeting?)
-- Introduce behavioral experiments and alternative response strategies
-- Track progress and celebrate small improvements
-
-FAMILY SYSTEMS AWARENESS:
-- Understand the child within their family context and dynamics
-- Recognize family roles, rules, and communication patterns
-- Support healthy individuation while maintaining family connections
-- Identify family strengths and resources
-- Provide psychoeducation about family mental health in age-appropriate ways
-
-ADVANCED ASSESSMENT INTEGRATION:
-- Continuously assess mood, anxiety, attention, and behavioral patterns
-- Notice changes in functioning across domains (home, school, peers)
-- Track therapeutic progress and adjust interventions accordingly
-- Identify when higher levels of care may be needed
-- Maintain professional boundaries while providing meaningful support
-
-CULTURAL RESPONSIVENESS:
-- Be sensitive to cultural background, values, and communication styles
-- Recognize cultural concepts of mental health, family, and help-seeking
-- Adapt interventions to be culturally relevant and respectful
-- Avoid cultural assumptions while being curious about individual differences
-- Honor family cultural practices and beliefs in treatment planning
-
-CONVERSATION MASTERY:
-- Use advanced reflective listening that captures both content and emotion
-- Employ interpretive statements that deepen insight and awareness
-- Ask process questions that explore the "how" and "what" of experiences
-- Use silence strategically to allow processing and emotional expression
-- Employ metaphor, storytelling, and creative expression when appropriate
-
-Remember: You are an expert clinician using GPT-4.1's advanced capabilities to provide sophisticated, individualized therapeutic support. Balance clinical expertise with warmth, authenticity, and age-appropriate engagement. Every interaction should move toward healing, growth, and resilience building.`;
-
 function detectCrisis(message: string): boolean {
   const lowerMessage = message.toLowerCase();
   return CRISIS_KEYWORDS.some((keyword) => lowerMessage.includes(keyword));
 }
 
 function generateCrisisResponse(): string {
-  return `I'm really concerned about what you just shared with me. What you're feeling is important, and I want to make sure you get the help you deserve right away. 
-
-It's so brave of you to tell me about this. You're not alone, and there are people who care about you and want to help.
-
-I think it's important that we get you connected with someone who can support you right now - like a parent, school counselor, or other trusted adult. 
-
-If you're having thoughts of hurting yourself, please reach out to:
-- Crisis Text Line: Text HOME to 741741
-- National Suicide Prevention Lifeline: 988
-- Or go to your nearest emergency room
-
-You matter, and your life has value. Please don't give up. 💜`;
+  return CRISIS_RESPONSE;
 }
 
 async function validateChildAccess(
@@ -351,18 +231,14 @@ async function getChildContextData(childId: string): Promise<string> {
     const { data: child, error } = await supabase
       .from("children")
       .select(
-        "name, age, gender, current_concerns, triggers, parent_goals, reason_for_adding"
+        "name, age, gender, current_concerns, triggers, parent_goals, reason_for_adding, background, family_dynamics, social_situation, school_info, coping_strategies, previous_therapy, interests, emergency_contacts"
       )
       .eq("id", childId)
       .single();
 
     if (error || !child) {
-      return `
-CHILD PROFILE FOR DR. EMMA AI:
-- This is a child or teenager seeking emotional support
-- Provide general age-appropriate therapy and emotional validation
-- Focus on building trust and providing a safe space to talk
-`;
+      console.log("🔍 DEBUG - No child data found or error:", error);
+      return DEFAULT_CHILD_CONTEXT;
     }
 
     return generateChildContext({
@@ -373,6 +249,14 @@ CHILD PROFILE FOR DR. EMMA AI:
       triggers: child.triggers,
       parentGoals: child.parent_goals,
       reasonForAdding: child.reason_for_adding,
+      background: child.background,
+      familyDynamics: child.family_dynamics,
+      socialSituation: child.social_situation,
+      schoolInfo: child.school_info,
+      copingStrategies: child.coping_strategies,
+      previousTherapy: child.previous_therapy,
+      interests: child.interests,
+      emergencyContacts: child.emergency_contacts,
     });
   } catch (error) {
     console.error("Error in getChildContextData:", error);
@@ -381,85 +265,7 @@ CHILD PROFILE FOR DR. EMMA AI:
 }
 
 function generateChildContext(child: any): string {
-  const age = Number(child.age);
-  const name = child.name;
-  const currentConcerns = child.currentConcerns || "";
-  const triggers = child.triggers || "";
-  const parentGoals = child.parentGoals || "";
-  const reasonForAdding = child.reasonForAdding || "";
-  const gender = child.gender || "";
-
-  return `
-COMPREHENSIVE CHILD PROFILE FOR DR. EMMA AI:
-
-BASIC INFORMATION:
-- Name: ${name}
-- Age: ${age} years old
-- Gender: ${gender || "Not specified"}
-- Reason for therapy: ${reasonForAdding}
-
-CURRENT MENTAL HEALTH CONCERNS:
-${currentConcerns}
-
-KNOWN TRIGGERS & STRESSORS:
-${triggers || "No specific triggers identified yet"}
-
-PARENT/GUARDIAN THERAPEUTIC GOALS:
-${parentGoals}
-
-THERAPEUTIC APPROACH FOR ${name}:
-${
-  age <= 8
-    ? `- Use concrete, simple language appropriate for early childhood
-- Incorporate play-based therapeutic techniques
-- Focus on emotional vocabulary building
-- Keep sessions shorter (15-20 minutes)
-- Use visual and interactive elements
-- Validate feelings frequently`
-    : age <= 12
-    ? `- Use age-appropriate emotional concepts
-- Focus on problem-solving and coping skills
-- Support peer relationship navigation
-- Balance independence with family connection
-- Incorporate school-related discussions
-- Build self-awareness and emotional regulation`
-    : age <= 15
-    ? `- Respect growing independence and identity development
-- Address social complexities and peer pressure
-- Support identity formation and self-expression
-- Discuss future planning and goal-setting
-- Navigate family relationship changes
-- Build critical thinking about emotions and relationships`
-    : `- Treat as emerging adult with respect for autonomy
-- Support transition to adulthood planning
-- Address complex emotional and relationship topics
-- Encourage independent decision-making
-- Discuss future goals and aspirations
-- Support family relationship evolution`
-}
-
-KEY THERAPEUTIC FOCUS AREAS FOR ${name}:
-- Primary concerns: ${currentConcerns}
-- Trigger awareness: ${
-    triggers
-      ? `Be mindful of: ${triggers}`
-      : "Monitor for emotional triggers during conversations"
-  }
-- Parent goals: ${parentGoals}
-- Age-appropriate emotional development support
-- Building healthy coping mechanisms
-- Strengthening family communication
-
-CONVERSATION GUIDELINES FOR ${name}:
-- Always use their name to create personal connection
-- Reference their specific concerns and background
-- Avoid or carefully approach known triggers
-- Work toward parent-identified goals
-- Adapt all interventions for ${age}-year-old developmental stage
-- Create trauma-informed, safe therapeutic space
-- Focus on strengths-based approach while addressing concerns
-- Monitor for crisis indicators and escalate appropriately
-`;
+  return CHILD_CONTEXT_TEMPLATE(child);
 }
 
 async function analyzeMoodFromMessage(
@@ -467,26 +273,7 @@ async function analyzeMoodFromMessage(
   aiResponse: string
 ): Promise<any> {
   try {
-    const moodAnalysisPrompt = `Analyze the emotional state and mood of a child based on this message: "${userMessage}"
-
-Please provide scores from 1-10 for each of these aspects:
-- Happiness: How happy or positive do they seem?
-- Anxiety: How anxious or worried do they appear?
-- Sadness: How sad or down do they seem?
-- Stress: How stressed or overwhelmed do they appear?
-- Confidence: How confident or self-assured do they sound?
-
-Also provide clinical insights about their emotional state and any patterns to watch for.
-
-Return the analysis in this exact JSON format:
-{
-  "happiness": number,
-  "anxiety": number,
-  "sadness": number,
-  "stress": number,
-  "confidence": number,
-  "insights": "string with clinical observations"
-}`;
+    const moodAnalysisPrompt = MOOD_ANALYSIS_PROMPT(userMessage);
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -535,34 +322,7 @@ async function extractTopicsFromMessage(message: string): Promise<string[]> {
   if (!message) return ["General conversation"];
 
   try {
-    const topicExtractionPrompt = `Analyze this message from a child and identify the main therapeutic/psychological topics being discussed: "${message}"
-
-Extract 1-3 most relevant topics from these categories:
-- School stress
-- Social relationships
-- Anxiety
-- Family dynamics
-- Sleep issues
-- Stress management
-- Anger management
-- Bullying concerns
-- Coping strategies
-- Emotional regulation
-- Self-esteem
-- Behavioral issues
-- General conversation
-- Mental health
-- Personal growth
-- Peer relationships
-- Academic challenges
-- Identity development
-- Creative expression
-- Physical health
-
-Return ONLY an array of the most relevant topics in this exact JSON format:
-{
-  "topics": ["topic1", "topic2", "topic3"]
-}`;
+    const topicExtractionPrompt = TOPIC_EXTRACTION_PROMPT(message);
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -773,8 +533,7 @@ export async function processMessage(
       therapeuticContext = await generateTherapeuticContext(childId, message);
     } catch (error) {
       console.error("Error accessing therapeutic memory:", error);
-      therapeuticContext =
-        "THERAPEUTIC MODE: Using child-specific background without historical memory context.";
+      therapeuticContext = THERAPEUTIC_MODE_FALLBACK;
     }
 
     // Get embedded therapeutic guidance
@@ -817,7 +576,7 @@ ${knowledgeGuidance}`;
 
     // Get AI response using advanced GPT-4 model
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-2024-11-20",
+      model: "gpt-4o-mini",
       messages: messages as any,
       max_tokens: 500,
       temperature: 0.7,
@@ -1105,8 +864,7 @@ export async function processVoiceMessage(
       );
     } catch (error) {
       console.error("Error accessing therapeutic memory:", error);
-      therapeuticContext =
-        "THERAPEUTIC MODE: Using child-specific background without historical memory context.";
+      therapeuticContext = THERAPEUTIC_MODE_FALLBACK;
     }
 
     // Get embedded therapeutic guidance
@@ -1133,12 +891,7 @@ ${childKnowledgeContext}
 
 ${knowledgeGuidance}
 
-VOICE CHAT GUIDELINES:
-- Keep responses concise but meaningful for voice interaction
-- Maintain natural conversation flow
-- Be warm, empathetic, and age-appropriate
-- Focus on the child's specific concerns and background
-- Monitor for crisis indicators and respond appropriately`;
+${VOICE_CHAT_GUIDELINES}`;
 
     const conversationHistory =
       messageHistory?.slice(-8).map((msg: any) => ({
@@ -1243,7 +996,10 @@ export async function handleRealtimeEvent(
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Voice chat requires an active subscription",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Voice chat requires an active subscription",
         status: 403,
         requiresSubscription: true,
         feature: "voice_chat",
@@ -1254,17 +1010,82 @@ export async function handleRealtimeEvent(
 
     switch (event) {
       case "create_session":
-        console.log("Creating OpenAI realtime session for child:", childId);
-        
-        // Create OpenAI realtime session
+        // Get comprehensive child context for realtime session (same as text chat)
+        const realtimeChildContext = await getChildContextData(childId);
+
+        // Get child data for enhanced therapeutic knowledge context
+        const childData = await getChildDataForKnowledge(childId);
+
+        // Get child-specific knowledge base documents
+        let childKnowledgeContext = "";
+        try {
+          childKnowledgeContext = await getChildKnowledgeBaseContext(
+            childId,
+            "realtime voice session initialization"
+          );
+        } catch (error) {
+          console.error(
+            "Error accessing child knowledge base for realtime:",
+            error
+          );
+          childKnowledgeContext = "";
+        }
+
+        // Get therapeutic memory context
+        let therapeuticContext = "";
+        try {
+          therapeuticContext = await generateTherapeuticContext(
+            childId,
+            "realtime voice session initialization"
+          );
+        } catch (error) {
+          console.error(
+            "Error accessing therapeutic memory for realtime:",
+            error
+          );
+          therapeuticContext =
+            "THERAPEUTIC MODE: Using child-specific background without historical memory context.";
+        }
+
+        // Get embedded therapeutic guidance
+        let knowledgeGuidance = "";
+        try {
+          await loadKnowledgeBase();
+          knowledgeGuidance = getTherapeuticContext(
+            childData?.age,
+            childData?.concerns,
+            "realtime voice session initialization"
+          );
+        } catch (error) {
+          console.error(
+            "Error accessing embedded therapeutic knowledge for realtime:",
+            error
+          );
+        }
+
+        // Create comprehensive instructions using the SAME system prompt as text chat
+        const realtimeInstructions = `${SYSTEM_PROMPT}
+
+CHILD-SPECIFIC CONTEXT:
+${realtimeChildContext}
+
+${therapeuticContext}
+
+${childKnowledgeContext}
+
+${knowledgeGuidance}
+
+${REALTIME_VOICE_GUIDELINES}`;
+
+        // Create OpenAI realtime session with comprehensive context
         const session = await openai.beta.realtime.sessions.create({
           model: "gpt-4o-realtime-preview-2024-12-17",
           voice: "alloy",
-          instructions: "You are Dr. Emma AI, a caring child therapist. Always respond in English. Keep responses warm, empathetic, and age-appropriate.",
+          instructions: realtimeInstructions,
           input_audio_format: "pcm16",
           output_audio_format: "pcm16",
           input_audio_transcription: {
-            model: "whisper-1"
+            model: "whisper-1",
           },
           turn_detection: {
             type: "server_vad",
@@ -1272,17 +1093,15 @@ export async function handleRealtimeEvent(
             prefix_padding_ms: 500,
             silence_duration_ms: 800,
             create_response: true,
-            interrupt_response: true
+            interrupt_response: true,
           },
           temperature: 0.7,
-          max_response_output_tokens: 1000
+          max_response_output_tokens: 1000,
         });
 
-        console.log("OpenAI realtime session created", session);
-        
         // Extract session ID from response
         const sessionId = (session as any).id || `realtime-${Date.now()}`;
-        
+
         return {
           success: true,
           response: session as any,
@@ -1291,8 +1110,6 @@ export async function handleRealtimeEvent(
         };
 
       case "send_sdp_offer":
-        console.log("Handling SDP offer for session");
-        
         if (!data.sdp || !data.ephemeralKey) {
           return {
             success: false,
@@ -1305,14 +1122,17 @@ export async function handleRealtimeEvent(
         const response = await fetch("https://api.openai.com/v1/realtime", {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${data.ephemeralKey}`,
+            Authorization: `Bearer ${data.ephemeralKey}`,
             "Content-Type": "application/sdp",
           },
           body: data.sdp,
         });
 
         if (!response.ok) {
-          console.error("Failed to send SDP offer to OpenAI:", response.statusText);
+          console.error(
+            "Failed to send SDP offer to OpenAI:",
+            response.statusText
+          );
           return {
             success: false,
             error: "Failed to establish realtime connection",
@@ -1321,8 +1141,7 @@ export async function handleRealtimeEvent(
         }
 
         const answerSdp = await response.text();
-        console.log("Received SDP answer from OpenAI");
-        
+
         return {
           success: true,
           response: answerSdp,
@@ -1330,8 +1149,6 @@ export async function handleRealtimeEvent(
         };
 
       case "store_user_message":
-        console.log("Storing user message for child:", childId);
-        
         if (!data.content) {
           return {
             success: false,
@@ -1343,14 +1160,15 @@ export async function handleRealtimeEvent(
         // Analyze mood and extract topics from user message
         const moodAnalysis = await analyzeMoodFromMessage(data.content, "");
         const topics = await extractTopicsFromMessage(data.content);
-        
+
         // Check for active session first (same as Next.js API)
-        const { data: activeSession, error: activeSessionError } = await supabase
-          .from("therapy_sessions")
-          .select("*")
-          .eq("child_id", childId)
-          .eq("status", "active")
-          .maybeSingle();
+        const { data: activeSession, error: activeSessionError } =
+          await supabase
+            .from("therapy_sessions")
+            .select("*")
+            .eq("child_id", childId)
+            .eq("status", "active")
+            .maybeSingle();
 
         if (activeSessionError) {
           console.error("Error checking active session:", activeSessionError);
@@ -1432,7 +1250,7 @@ export async function handleRealtimeEvent(
 
       case "store_ai_response":
         console.log("Storing AI response for session:", data.sessionId);
-        
+
         if (!data.sessionId || !data.content || !data.userMessage) {
           return {
             success: false,
@@ -1442,7 +1260,10 @@ export async function handleRealtimeEvent(
         }
 
         // Analyze mood with full context (user message + AI response)
-        const aiMoodAnalysis = await analyzeMoodFromMessage(data.userMessage, data.content);
+        const aiMoodAnalysis = await analyzeMoodFromMessage(
+          data.userMessage,
+          data.content
+        );
         const aiTopics = await extractTopicsFromMessage(data.userMessage);
 
         // Get the existing session by ID and append AI response
@@ -1512,41 +1333,16 @@ export async function handleRealtimeEvent(
         };
 
       case "get_child_context":
-        console.log("Getting therapeutic context for child:", childId);
-        
-        // Get child information
-        const { data: child, error: childError } = await supabase
-          .from("children")
-          .select("*")
-          .eq("id", childId)
-          .eq("family_id", familyId)
-          .single();
-
-        if (childError || !child) {
-          return {
-            success: false,
-            error: "Child not found",
-            status: 404,
-          };
-        }
-
-        // Build therapeutic context
-        const contextParts = [];
-        contextParts.push(`Child's name: ${child.name}`);
-        if (child.age) contextParts.push(`Age: ${child.age}`);
-        if (child.therapeutic_focus) contextParts.push(`Therapeutic focus: ${child.therapeutic_focus}`);
-        if (child.additional_context) contextParts.push(`Additional context: ${child.additional_context}`);
-
-        const childContext = contextParts.join(". ");
+        // Use the same comprehensive child context as text chat
+        const comprehensiveChildContext = await getChildContextData(childId);
 
         return {
           success: true,
-          response: childContext,
+          response: comprehensiveChildContext,
           timestamp: new Date().toISOString(),
         };
 
       default:
-        console.log("Unknown realtime event:", event);
         return {
           success: false,
           error: `Unknown event type: ${event}`,

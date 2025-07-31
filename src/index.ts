@@ -7,7 +7,6 @@ import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import { errorHandler } from "./middleware/errorHandler";
 import { notFoundHandler } from "./middleware/notFoundHandler";
-import healthRoutes from "./routes/health";
 import authRoutes from "./routes/auth";
 import analysisRoutes from "./routes/analysis";
 import chatRoutes from "./routes/chat";
@@ -63,7 +62,6 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // API routes
-app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/analysis", analysisRoutes);
 app.use("/api/chat", chatRoutes);
@@ -84,8 +82,6 @@ app.use(errorHandler);
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔗 API base: http://localhost:${PORT}/api`);
 });
 
 export default app;
