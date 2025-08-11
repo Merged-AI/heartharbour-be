@@ -17,6 +17,8 @@ import profileRoutes from "./routes/profile";
 import profileCheckRoutes from "./routes/profileCheck";
 import sessionsRoutes from "./routes/sessions";
 import stripeRoutes from "./routes/stripe";
+import emailRoutes from "./routes/email";
+import { startProductionCronJobs } from "./utils/cronScheduler";
 
 // Load environment variables
 dotenv.config();
@@ -43,7 +45,7 @@ app.use(
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 60 * 1000, // 1 minute
   max: 100, // limit each IP to 100 requests per windowMs
   message: {
     error: "Too many requests from this IP, please try again later.",
@@ -58,11 +60,13 @@ app.use(morgan("combined"));
 app.use(cookieParser());
 
 // Body parsing middleware
+// Special handling for Stripe webhooks - need raw body for signature verification
+app.use("/api/stripe/webhook", express.raw({ type: "application/json" }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Disable ETag for API routes to prevent 304 responses
-app.set('etag', false);
+app.set("etag", false);
 
 // API routes
 app.use("/api/auth", authRoutes);
@@ -75,6 +79,7 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/profile-check", profileCheckRoutes);
 app.use("/api/sessions", sessionsRoutes);
 app.use("/api/stripe", stripeRoutes);
+app.use("/api/email", emailRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
@@ -85,6 +90,9 @@ app.use(errorHandler);
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+
+  // Start production cron jobs
+  startProductionCronJobs();
 });
 
 export default app;

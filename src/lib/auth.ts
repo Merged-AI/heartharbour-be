@@ -1,5 +1,5 @@
-import { Request } from 'express';
-import { createServerSupabase } from './supabase.js';
+import { Request } from "express";
+import { createServerSupabase } from "./supabase.js";
 
 // Custom authentication function that works with auth_token cookie
 export async function getAuthenticatedFamilyFromToken(req: Request) {
@@ -11,9 +11,9 @@ export async function getAuthenticatedFamilyFromToken(req: Request) {
 
   try {
     // Decode the token to get family ID
-    const decoded = Buffer.from(authToken, 'base64').toString('utf-8');
-    const [familyId] = decoded.split(':');
-    
+    const decoded = Buffer.from(authToken, "base64").toString("utf-8");
+    const [familyId] = decoded.split(":");
+
     if (!familyId) {
       return null;
     }
@@ -21,9 +21,9 @@ export async function getAuthenticatedFamilyFromToken(req: Request) {
     // Fetch family data from database
     const supabase = createServerSupabase();
     const { data: family, error } = await supabase
-      .from('families')
-      .select('*')
-      .eq('id', familyId)
+      .from("families")
+      .select("*")
+      .eq("id", familyId)
       .single();
 
     if (error || !family) {
@@ -32,7 +32,7 @@ export async function getAuthenticatedFamilyFromToken(req: Request) {
 
     return family;
   } catch (error) {
-    console.error('Error decoding auth token:', error);
+    console.error("Error decoding auth token:", error);
     return null;
   }
 }
@@ -41,16 +41,16 @@ export async function getAuthenticatedFamilyFromToken(req: Request) {
 export const authenticateUser = async (req: Request, res: any, next: any) => {
   try {
     const family = await getAuthenticatedFamilyFromToken(req);
-    
+
     if (!family) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return res.status(401).json({ error: "Authentication required" });
     }
 
     // Attach family to request object
     (req as any).family = family;
     next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Auth middleware error:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
-}; 
+};

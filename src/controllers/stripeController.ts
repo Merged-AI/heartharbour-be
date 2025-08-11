@@ -98,7 +98,13 @@ export const cancelSubscription = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    const result = await stripeService.cancelSubscription(family);
+    // Extract cancellation feedback from request body
+    const { cancellation_feedback } = req.body;
+
+    const result = await stripeService.cancelSubscription(
+      family,
+      cancellation_feedback
+    );
 
     if (!result.success) {
       return res.status(result.status || 500).json({ error: result.error });
@@ -173,6 +179,48 @@ export const resubscribe = async (req: Request, res: Response) => {
   }
 };
 
+export const createSubscriptionFromSetup = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const family = (req as any).family;
+    const { setupIntentId, customerId } = req.body;
+
+    if (!family) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    if (!setupIntentId || !customerId) {
+      return res
+        .status(400)
+        .json({ error: "Setup intent ID and customer ID are required" });
+    }
+
+    const result = await stripeService.createSubscriptionFromSetup(
+      family,
+      setupIntentId,
+      customerId
+    );
+
+    if (!result.success) {
+      return res.status(result.status || 500).json({ error: result.error });
+    }
+
+    res.json({
+      success: true,
+      subscriptionId: result.subscriptionId,
+      customerId: result.customerId,
+      status: result.status_stripe,
+      trialEnd: result.trialEnd,
+      message: result.message,
+    });
+  } catch (error) {
+    console.error("Create subscription from setup error:", error);
+    res.status(500).json({ error: "Failed to create subscription" });
+  }
+};
+
 export const handleWebhook = async (req: Request, res: Response) => {
   try {
     const signature = req.headers["stripe-signature"] as string;
@@ -181,7 +229,12 @@ export const handleWebhook = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Missing stripe-signature header" });
     }
 
-    const result = await stripeService.handleWebhook(req.body, signature);
+    // Convert Buffer to string for Stripe webhook verification
+    const rawBody = Buffer.isBuffer(req.body)
+      ? req.body
+      : Buffer.from(req.body);
+
+    const result = await stripeService.handleWebhook(rawBody, signature);
 
     if (!result.success) {
       return res.status(result.status || 400).json({ error: result.error });
