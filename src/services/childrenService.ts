@@ -147,6 +147,26 @@ export async function createChild(
   try {
     const supabase = createServerSupabase();
 
+    // Check if family already has 3 children (limit)
+    const { data: existingChildren, error: countError } = await supabase
+      .from("children")
+      .select("id")
+      .eq("family_id", familyId)
+      .eq("is_active", true);
+
+    if (countError) {
+      console.error("Error checking existing children count:", countError);
+      return { success: false, error: "Failed to verify children count" };
+    }
+
+    if (existingChildren && existingChildren.length >= 3) {
+      return { 
+        success: false, 
+        error: "You have reached the maximum limit of 3 children per family", 
+        status: 400 
+      };
+    }
+
     const { data, error } = await supabase
       .from("children")
       .insert({

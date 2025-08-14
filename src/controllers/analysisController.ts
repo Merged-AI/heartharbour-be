@@ -46,7 +46,7 @@ export const updateDashboardAnalytics = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    const { childId } = req.body;
+    const childId = req.body.childId || req.query.childId;
 
     if (!childId) {
       return res.status(400).json({ error: "Child ID is required" });

@@ -51,7 +51,7 @@ export const addChild = async (req: Request, res: Response) => {
     const result = await childrenService.createChild(family.id, childData);
 
     if (!result.success) {
-      return res.status(500).json({ error: result.error });
+      return res.status(result.status || 500).json({ error: result.error });
     }
 
     res.json({

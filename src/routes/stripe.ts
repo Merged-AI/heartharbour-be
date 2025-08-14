@@ -7,7 +7,6 @@ const router = Router();
 // POST /api/stripe/create-subscription-first - Create first-time subscription
 router.post(
   "/create-subscription-first",
-  authenticateUser,
   stripeController.createFirstSubscription
 );
 
@@ -27,6 +26,13 @@ router.post(
 
 // POST /api/stripe/resubscribe - Resubscribe after cancellation
 router.post("/resubscribe", authenticateUser, stripeController.resubscribe);
+
+// POST /api/stripe/create-subscription-from-setup - Create subscription from setup intent
+router.post(
+  "/create-subscription-from-setup",
+  authenticateUser,
+  stripeController.createSubscriptionFromSetup
+);
 
 // GET /api/stripe/subscription-status - Get subscription status
 router.get(
