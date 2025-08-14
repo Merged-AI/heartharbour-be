@@ -1,9 +1,10 @@
 import { Request } from "express";
 import { createServerSupabase } from "./supabase.js";
 
-// Custom authentication function that works with auth_token cookie
+// Custom authentication function that works with auth_token from Authorization header
 export async function getAuthenticatedFamilyFromToken(req: Request) {
-  const authToken = req.cookies?.auth_token;
+  const authHeader = req.headers.authorization;
+  const authToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
   if (!authToken) {
     return null;

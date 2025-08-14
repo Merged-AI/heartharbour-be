@@ -3,7 +3,6 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
-import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import { errorHandler } from "./middleware/errorHandler";
 import { notFoundHandler } from "./middleware/notFoundHandler";
@@ -37,7 +36,6 @@ app.use(
       process.env.MOBILE_APP_URL || "http://localhost:3000",
       // Add your mobile app URLs here
     ],
-    credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
@@ -55,9 +53,6 @@ app.use("/api/", limiter);
 
 // Logging middleware
 app.use(morgan("combined"));
-
-// Cookie parsing middleware
-app.use(cookieParser());
 
 // Body parsing middleware
 // Special handling for Stripe webhooks - need raw body for signature verification
