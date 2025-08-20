@@ -38,7 +38,6 @@ app.use(
       const allowedOrigins = [
         process.env.FRONTEND_URL || "http://localhost:3000",
         process.env.MOBILE_APP_URL || "http://localhost:3000",
-        "https://heartharbour-chi.vercel.app",
       ];
 
       // Allow all Vercel preview deployments
