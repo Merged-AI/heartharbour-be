@@ -31,13 +31,39 @@ app.use(helmet());
 // CORS configuration for web and mobile apps
 app.use(
   cors({
-    origin: [
-      process.env.FRONTEND_URL || "http://localhost:3000",
-      process.env.MOBILE_APP_URL || "http://localhost:3000",
-      // Add your mobile app URLs here
-    ],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+
+      const allowedOrigins = [
+        process.env.FRONTEND_URL || "http://localhost:3000",
+        process.env.MOBILE_APP_URL || "http://localhost:3000",
+        "https://heartharbour-chi.vercel.app",
+      ];
+
+      // Allow all Vercel preview deployments
+      const isVercelPreview =
+        origin.includes("heartharbour") && origin.includes("vercel.app");
+
+      if (allowedOrigins.includes(origin) || isVercelPreview) {
+        callback(null, true);
+      } else {
+        console.log("CORS blocked origin:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+      "Cache-Control",
+      "X-File-Name",
+    ],
+    credentials: true, // Important for cookies/auth
+    optionsSuccessStatus: 200, // Some legacy browsers choke on 204
   })
 );
 
