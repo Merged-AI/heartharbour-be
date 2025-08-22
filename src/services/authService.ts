@@ -22,6 +22,7 @@ export interface Child {
 export interface UserData {
   family: Family;
   children: Child[];
+  hasPinSetup: boolean;
 }
 
 interface AuthResult {
@@ -471,6 +472,9 @@ export async function getUserWithChildren(familyId: string): Promise<UserData> {
     throw new Error("Family not found");
   }
 
+  // Check if PIN is set up
+  const hasPinSetup = !!(family.parent_pin && family.parent_pin.length === 4);
+
   return {
     family: {
       id: family.id,
@@ -483,6 +487,7 @@ export async function getUserWithChildren(familyId: string): Promise<UserData> {
       created_at: family.created_at,
     },
     children: children || [],
+    hasPinSetup,
   };
 }
 
