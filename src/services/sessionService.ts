@@ -12,16 +12,21 @@ export async function generateCompletionInsights(
   try {
     const supabase = createServerSupabase();
 
-    // Verify child belongs to family
+    // Verify child belongs to family and get session info
     const { data: child, error: childError } = await supabase
       .from("children")
-      .select("id, name, age")
+      .select("id, name, age, last_session_at, last_session_had_conversation")
       .eq("id", childId)
       .eq("family_id", familyId)
       .single();
 
     if (childError || !child) {
       throw new Error("Child not found or access denied");
+    }
+
+    // Check if the last session had no conversation
+    if (child.last_session_had_conversation === false) {
+      throw new Error("Latest session has no conversation data");
     }
 
     // Get the most recent completed session for this child
@@ -36,6 +41,16 @@ export async function generateCompletionInsights(
 
     if (sessionError || !session) {
       throw new Error("No completed session found");
+    }
+
+    // Validate that the session has meaningful content
+    const messages = session.messages || [];
+    const hasConversation =
+      messages.length > 0 &&
+      messages.some((msg: any) => msg.content && msg.content.trim().length > 0);
+
+    if (!hasConversation) {
+      throw new Error("Latest session has no conversation data");
     }
 
     // Generate AI completion insights based on the session
