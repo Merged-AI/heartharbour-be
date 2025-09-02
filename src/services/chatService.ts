@@ -712,7 +712,10 @@ ${knowledgeGuidance}`;
 
       await supabase
         .from("children")
-        .update({ last_session_at: new Date().toISOString() })
+        .update({
+          last_session_at: new Date().toISOString(),
+          last_session_had_conversation: true, // Mark that this session had conversation
+        })
         .eq("id", childId);
     } catch (error) {
       console.error("Error logging session:", error);
@@ -945,7 +948,10 @@ ${VOICE_CHAT_GUIDELINES}`;
 
       await supabase
         .from("children")
-        .update({ last_session_at: new Date().toISOString() })
+        .update({
+          last_session_at: new Date().toISOString(),
+          last_session_had_conversation: true, // Mark that this voice session had conversation
+        })
         .eq("id", childId);
     } catch (error) {
       console.error("Error logging voice session:", error);
@@ -1315,10 +1321,13 @@ ${REALTIME_VOICE_GUIDELINES}`;
           };
         }
 
-        // Update child's last session time
+        // Update child's last session time and mark conversation occurred
         const { error: updateChildError } = await supabase
           .from("children")
-          .update({ last_session_at: new Date().toISOString() })
+          .update({
+            last_session_at: new Date().toISOString(),
+            last_session_had_conversation: true, // Mark that this realtime voice session had conversation
+          })
           .eq("id", childId);
 
         if (updateChildError) {
@@ -1500,23 +1509,50 @@ export async function completeSessionsForChild(
       };
     }
 
-    // Mark any active sessions for this child as completed
-    const { error: updateError } = await supabase
+    // Check if there are any active sessions to complete
+    const { data: activeSessions, error: checkError } = await supabase
       .from("therapy_sessions")
-      .update({
-        status: "completed",
-        session_duration: sessionDuration,
-      })
+      .select("id")
       .eq("child_id", childId)
       .eq("status", "active");
 
-    if (updateError) {
-      console.error("Error completing sessions:", updateError);
+    if (checkError) {
+      console.error("Error checking active sessions:", checkError);
       return {
         success: false,
-        error: "Failed to complete sessions",
+        error: "Failed to check active sessions",
         status: 500,
       };
+    }
+
+    if (activeSessions && activeSessions.length > 0) {
+      // Mark existing active sessions as completed
+      const { error: updateError } = await supabase
+        .from("therapy_sessions")
+        .update({
+          status: "completed",
+          session_duration: sessionDuration,
+        })
+        .eq("child_id", childId)
+        .eq("status", "active");
+
+      if (updateError) {
+        console.error("Error completing sessions:", updateError);
+        return {
+          success: false,
+          error: "Failed to complete sessions",
+          status: 500,
+        };
+      }
+    } else {
+      // No active sessions found - update child's last_session_at to track session end without creating empty records
+      await supabase
+        .from("children")
+        .update({
+          last_session_at: new Date().toISOString(),
+          last_session_had_conversation: false, // Track if last session had conversation
+        })
+        .eq("id", childId);
     }
 
     return {
