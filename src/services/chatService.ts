@@ -712,9 +712,9 @@ ${knowledgeGuidance}`;
 
       await supabase
         .from("children")
-        .update({ 
+        .update({
           last_session_at: new Date().toISOString(),
-          last_session_had_conversation: true // Mark that this session had conversation
+          last_session_had_conversation: true, // Mark that this session had conversation
         })
         .eq("id", childId);
     } catch (error) {
@@ -948,7 +948,10 @@ ${VOICE_CHAT_GUIDELINES}`;
 
       await supabase
         .from("children")
-        .update({ last_session_at: new Date().toISOString() })
+        .update({
+          last_session_at: new Date().toISOString(),
+          last_session_had_conversation: true, // Mark that this voice session had conversation
+        })
         .eq("id", childId);
     } catch (error) {
       console.error("Error logging voice session:", error);
@@ -1318,10 +1321,13 @@ ${REALTIME_VOICE_GUIDELINES}`;
           };
         }
 
-        // Update child's last session time
+        // Update child's last session time and mark conversation occurred
         const { error: updateChildError } = await supabase
           .from("children")
-          .update({ last_session_at: new Date().toISOString() })
+          .update({
+            last_session_at: new Date().toISOString(),
+            last_session_had_conversation: true, // Mark that this realtime voice session had conversation
+          })
           .eq("id", childId);
 
         if (updateChildError) {
@@ -1542,9 +1548,9 @@ export async function completeSessionsForChild(
       // No active sessions found - update child's last_session_at to track session end without creating empty records
       await supabase
         .from("children")
-        .update({ 
+        .update({
           last_session_at: new Date().toISOString(),
-          last_session_had_conversation: false // Track if last session had conversation
+          last_session_had_conversation: false, // Track if last session had conversation
         })
         .eq("id", childId);
     }

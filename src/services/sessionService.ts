@@ -49,9 +49,9 @@ export async function generateCompletionInsights(
       messages.length > 0 &&
       messages.some((msg: any) => msg.content && msg.content.trim().length > 0);
 
-    if (!hasConversation) {
-      throw new Error("Latest session has no conversation data");
-    }
+    // if (!hasConversation) {
+    //   throw new Error("Latest session has no conversation data");
+    // }
 
     // Generate AI completion insights based on the session
     const completionInsights = await generateAIInsights(session, child);

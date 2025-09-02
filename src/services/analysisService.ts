@@ -312,10 +312,10 @@ Create a compassionate, non-clinical analysis for PARENTS in this exact JSON for
     "key_factors": string[]
   },
   "active_concerns": {
-    "count": number,
+    "count": number, // MUST equal the total length of ALL unique concerns (identified_concerns + unique priority_concerns)
     "level": "stable" | "monitoring" | "high_priority",
-    "identified_concerns": string[],
-    "priority_concerns": string[]
+    "identified_concerns": string[], // General areas that need attention or monitoring
+    "priority_concerns": string[] // High-priority items that need immediate focus (can overlap with identified_concerns or be separate)
   }
 }`;
 
@@ -388,12 +388,26 @@ Create a compassionate, non-clinical analysis for PARENTS in this exact JSON for
       analysis_period: "last_10_sessions",
       key_factors: [],
     },
-    active_concerns: aiAnalysis.active_concerns || {
-      count: 0,
-      level: "stable",
-      identified_concerns: [],
-      priority_concerns: [],
-    },
+    active_concerns: (() => {
+      const concerns = aiAnalysis.active_concerns || {
+        count: 0,
+        level: "stable",
+        identified_concerns: [],
+        priority_concerns: [],
+      };
+
+      // Calculate total unique concerns (identified + unique priority concerns)
+      const identifiedConcerns = concerns.identified_concerns || [];
+      const priorityConcerns = concerns.priority_concerns || [];
+      const uniquePriorityConcerns = priorityConcerns.filter(
+        (concern: string) => !identifiedConcerns.includes(concern)
+      );
+
+      // Set count to total unique concerns
+      concerns.count =
+        identifiedConcerns.length + uniquePriorityConcerns.length;
+      return concerns;
+    })(),
     alerts: {
       has_alert: hasAlert,
       alert_type: hasAlert ? "warning" : undefined,
